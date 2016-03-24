@@ -28,28 +28,11 @@ scene.add( new THREE.AmbientLight(0x8C8C8C) );
 
 var directionalLight = new THREE.DirectionalLight( 0xffffff, 1 );
 directionalLight.position.set( 1, 0, 1 );
-directionalLight.intensity = 1;
-directionalLight.rotation.set( 0, 0, 0 );
 scene.add( directionalLight );
 
-var geometry = new THREE.IcosahedronGeometry(1,6);
+var icosphere = new IcoSphere();
 
-var loader = new THREE.TextureLoader();
-var texture = loader.load("2_no_clouds_8k.jpg");
-var bumpmap = loader.load("elev_bump_8k.jpg");
-var specularmap = loader.load("water_8k.png");
-var material = new THREE.MeshPhongMaterial( {
- map: texture,
- bumpMap: bumpmap,
- bumpScale: 0.005,
- specularMap: specularmap,
- specular: new THREE.Color('grey'),
- shading: THREE.SmoothShading
- } );
-
-var mesh = new THREE.Mesh( geometry, material );
-mesh.rotateY(Math.PI/2);
-scene.add(mesh);
+scene.add(icosphere.mesh);
 
 render();
 
