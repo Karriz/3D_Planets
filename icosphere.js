@@ -1,4 +1,36 @@
-function IcoSphere() {
+    
+createVertexKey = function(vertex) {
+    return vertex.x.toString()+","+vertex.y.toString()+","+vertex.z.toString();
+}
+
+function FaceData(face, context, parent) {
+
+    this.v1 = createVertexKey(context.geometry.vertices[face.a]);
+    this.v2 = createVertexKey(context.geometry.vertices[face.b]);
+    this.v3 = createVertexKey(context.geometry.vertices[face.c]);
+    
+    this.parent = parent;
+
+    if (parent != undefined) {
+        //console.log(this);
+        parent.children.push(this);
+    }
+    context.vertexCache[this.v1].faces.push(this);
+    context.vertexCache[this.v2].faces.push(this);
+    context.vertexCache[this.v3].faces.push(this);
+    
+    this.children = [];
+}
+
+function VertexData(index, vector) {
+    //console.log(index);
+    this.index = index;
+    this.vector = vector;
+    
+    this.faces = [];
+}
+
+function IcoSphere(subDivision) {
     /*
     Based on:
     http://blog.andreaskahler.com/2009/06/creating-icosphere-mesh-in-code.html
@@ -7,44 +39,36 @@ function IcoSphere() {
 
     this.geometry = new THREE.Geometry();
     
-    this.middlePointIndexCache = [];
+    this.vertexCache = {};
+    this.faceContainer = [];
     
     this.getMiddle = function(a,b){
-        var firstIsSmaller = a<b;
-        var key1;
-        var key2;
+        //console.log(b);
+        var key;
         
-        if (firstIsSmaller) {
-            key1=a;
-            key2=b;
-        }
-        else {
-            key1=b;
-            key2=a;
-        }
-        if (typeof this.middlePointIndexCache[key1] !== 'undefined') {
-            if (typeof this.middlePointIndexCache[key1][key2] !== 'undefined') {
-                return this.middlePointIndexCache[key1][key2];
-            }
-        }
-
+        var avert = this.geometry.vertices[a];
+        var bvert = this.geometry.vertices[b]
+        
         var middle = new THREE.Vector3(0,0,0);
-        middle.add(this.geometry.vertices[a]);
-        middle.add(this.geometry.vertices[b]);
+        middle.add(avert);
+        middle.add(bvert);
         
         middle.divideScalar(2);
         
         middle.normalize();
+        
+        key = createVertexKey(middle);
+        
+        if (typeof this.vertexCache[key] !== 'undefined') {
+            return this.vertexCache[key];
+        }
+
         this.geometry.vertices.push(middle);
         var last = this.geometry.vertices.length-1;
         
-        if (typeof this.middlePointIndexCache[key1] === 'undefined') {
-            this.middlePointIndexCache[key1] = [];
-        }
+        this.vertexCache[key] = new VertexData(last, middle);
         
-        this.middlePointIndexCache[key1][key2] = (last);
-        
-        return (last);
+        return this.vertexCache[key];
 
     }
     
@@ -58,6 +82,8 @@ function IcoSphere() {
                 var vertice = new THREE.Vector3(x,y,0);
                 vertice.normalize();
                 this.geometry.vertices.push(vertice);
+                var key = createVertexKey(vertice);
+                this.vertexCache[key] = new VertexData(this.geometry.vertices.length -1, vertice);
             }
         }
         
@@ -66,6 +92,8 @@ function IcoSphere() {
                 var vertice = new THREE.Vector3(0,y,z);
                 vertice.normalize();
                 this.geometry.vertices.push(vertice);
+                var key = createVertexKey(vertice);
+                this.vertexCache[key] = new VertexData(this.geometry.vertices.length -1, vertice);
             }
         }
         
@@ -74,6 +102,8 @@ function IcoSphere() {
                 var vertice = new THREE.Vector3(x,0,z);
                 vertice.normalize();
                 this.geometry.vertices.push(vertice);
+                var key = createVertexKey(vertice);
+                this.vertexCache[key] = new VertexData(this.geometry.vertices.length -1, vertice);
             }
         }
         
@@ -82,7 +112,7 @@ function IcoSphere() {
         this.geometry.faces.push( new THREE.Face3( 0, 1, 7 ) );
         this.geometry.faces.push( new THREE.Face3( 0, 7, 10 ) );
         this.geometry.faces.push( new THREE.Face3( 0, 10, 11 ) );
-        
+
         this.geometry.faces.push( new THREE.Face3( 1, 5, 9 ) );
         this.geometry.faces.push( new THREE.Face3( 5, 11, 4 ) );
         this.geometry.faces.push( new THREE.Face3( 11, 10, 2 ) );
@@ -101,25 +131,53 @@ function IcoSphere() {
         this.geometry.faces.push( new THREE.Face3( 8, 6, 7 ) );
         this.geometry.faces.push( new THREE.Face3( 9, 8, 1 ) );
         
+        
+        this.faceContainer[0] = [];
+        for (var i=0;i<this.geometry.faces.length;i++) {
+            var facedata = new FaceData(this.geometry.faces[i],this);
+            this.geometry.faces[i]["facedata"] = facedata;
+            this.faceContainer[0].push(facedata);
+        }
+        
         this.geometry.verticesNeedUpdate = true;
         this.geometry.computeFaceNormals();
         this.geometry.computeVertexNormals();
     }
+        
+    this.subDivideFace = function(face, faces, level) {
+        //console.log(face);
+        var middle1 = this.getMiddle(face.a,face.b);
+        var middle2 = this.getMiddle(face.b,face.c);
+        var middle3 = this.getMiddle(face.c,face.a);
+        
+        //console.log(middle1);
+        //console.log(middle2);
+        //console.log(middle3);
+        
+        faces.push( new THREE.Face3( face.a, middle1.index, middle3.index ) );
+        faces.push( new THREE.Face3( face.b, middle2.index, middle1.index ) );
+        faces.push( new THREE.Face3( face.c, middle3.index, middle2.index ) );
+        faces.push( new THREE.Face3( middle1.index, middle2.index, middle3.index ) );
+        if (this.faceContainer[level] == undefined) {
+            this.faceContainer[level] = [];
+        }
+        for (var i=faces.length-4; i< faces.length; i++) {
+            //console.log(face["facedata"]);
+            console.log(level);
+            var facedata = new FaceData(faces[i],this,face["facedata"]);
+            faces[i]["facedata"] = facedata;
+            this.faceContainer[level].push(facedata);
+        }
+    }
     
-    this.subDivide = function (recursionLevel) {
+    this.subDivideAll = function (recursionLevel) {
         for (var i=0; i<recursionLevel; i++) {
             var faces2 = [];
             for(var j=0; j<this.geometry.faces.length; j++) {
                 var face = this.geometry.faces[j];
                 
-                var middle1 = this.getMiddle(face.a,face.b);
-                var middle2 = this.getMiddle(face.b,face.c);
-                var middle3 = this.getMiddle(face.c,face.a);
-                
-                faces2.push( new THREE.Face3( face.a, middle1, middle3 ) );
-                faces2.push( new THREE.Face3( face.b, middle2, middle1 ) );
-                faces2.push( new THREE.Face3( face.c, middle3, middle2 ) );
-                faces2.push( new THREE.Face3( middle1, middle2, middle3 ) );
+                this.subDivideFace(face, faces2, i+1);
+            
             }
             
             this.geometry.faces = faces2;
@@ -130,7 +188,10 @@ function IcoSphere() {
     }
         
     this.build();
-    this.subDivide(2);
+    this.subDivideAll(subDivision);
+    console.log(this.faceContainer.length);
+    console.log(this.faceContainer[1].length);
+    console.log(this.faceContainer[1][5]);
     
     this.material = new THREE.MeshPhongMaterial( { 
     wireframe: true
