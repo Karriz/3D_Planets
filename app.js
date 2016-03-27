@@ -30,7 +30,7 @@ var directionalLight = new THREE.DirectionalLight( 0xffffff, 1 );
 directionalLight.position.set( 1, 0, 1 );
 scene.add( directionalLight );
 
-var icosphere = new IcoSphere(4);
+var icosphere = new IcoSphere(6);
 
 scene.add(icosphere.mesh);
 
